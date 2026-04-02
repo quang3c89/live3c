@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Live3C Tournament Manager</title>
+<title>Live3C Quản Lí Giải Đấu</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;800&family=Outfit:wght@400;700;900&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
@@ -244,7 +244,7 @@ body{font-family:var(--font-main);background:var(--bg);color:var(--text);height:
     <!-- RIGHT: OVERVIEW TABLE -->
     <aside class="right" id="right-panel">
         <div class="right-header">
-            <h3>📋 Player Overview</h3>
+            <h3>📋 Danh Sách Đăng Kí</h3>
             <div style="display:flex;gap:4px;">
                 <button class="export-btn" onclick="exportImage('right-panel','players')">📸 List</button>
                 <button class="export-btn" onclick="exportImage('center-panel','bracket')">📸 Bracket</button>
@@ -327,7 +327,7 @@ const THEMES={
     'minimal':{bg:'#f3f4f6',card:'#fff',text:'#111827',accent:'#4b5563',sL:'#fff',sD:'#d1d5db',r:'12px',nc:'#111827',uc:'#6b7280',rc:'#374151'},
     'cartoon':{bg:'#fef3c7',card:'#fffbeb',text:'#92400e',accent:'#fbbf24',sL:'#fff',sD:'#fde68a',r:'28px',nc:'#78350f',uc:'#f59e0b',rc:'#d97706'}
 };
-const DEFAULTS={size:16,tbVals:["3-Cushion Masters","Sat, 14:00","Club Arena","Single Elim.","$5,000"],tbBg:'#edf2f7',tbFont:"'Inter',sans-serif",theme:'soft-sport',adminPw:'admin'};
+const DEFAULTS={size:16,tbVals:["Tạo & Quản Lí Giải Đấu","Sat, 14:00","Club Arena","Single Elim.","$5,000"],tbBg:'#edf2f7',tbFont:"'Inter',sans-serif",theme:'soft-sport',adminPw:'admin'};
 let S={players:[],bracketSize:DEFAULTS.size,bracket:[],theme:DEFAULTS.theme,wheelRotation:0,isSpinning:false,tbVals:[...DEFAULTS.tbVals],tbBg:DEFAULTS.tbBg,tbFont:DEFAULTS.tbFont,adminPw:DEFAULTS.adminPw,supaUrl:'',supaKey:'',loggedIn:false,videoSrc:''};
 
 /* ============================================================
