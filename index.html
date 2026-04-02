@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live3C Tournament Manager</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;800&family=Outfit:wght@400;700;900&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg:#e2e8f0;--card:#edf2f7;--text:#2d3748;--accent:#3182ce;
+    --shadow-light:#ffffff;--shadow-dark:#cbd5e0;--radius:16px;
+    --font-main:'Inter',sans-serif;--tb-bg:#edf2f7;--tb-font:'Inter',sans-serif;
+    --name-color:#1a365d;--unit-color:#718096;--rank-color:#e53e3e;
+    --row-even:rgba(0,0,0,0.02);--row-odd:transparent;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.12);border-radius:3px;}
+body{font-family:var(--font-main);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;transition:background 0.3s,color 0.3s;}
+.soft{background:var(--card);border-radius:var(--radius);box-shadow:5px 5px 10px var(--shadow-dark),-5px -5px 10px var(--shadow-light);transition:box-shadow 0.3s;}
+.soft-in{background:var(--card);border-radius:var(--radius);box-shadow:inset 3px 3px 6px var(--shadow-dark),inset -3px -3px 6px var(--shadow-light);}
+
+/* ===== THEME STRIP (compact horizontal) ===== */
+.theme-strip{display:flex;gap:6px;padding:4px 14px;background:var(--card);border-bottom:1px solid rgba(0,0,0,0.04);flex-shrink:0;align-items:center;z-index:100;height:34px;}
+.theme-strip .label{font-size:10px;font-weight:800;opacity:0.4;margin-right:2px;white-space:nowrap;letter-spacing:1px;}
+#theme-dots{display:flex;gap:5px;align-items:center;}
+.t-dot{width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,0.6);cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;flex-shrink:0;}
+.t-dot:hover{transform:scale(1.2);}
+.t-dot.active{border-color:#333;transform:scale(1.2);box-shadow:0 0 0 2px var(--accent),0 0 8px rgba(0,0,0,0.15);}
+.strip-spacer{flex:1;}
+.gear-btn{width:24px;height:24px;border-radius:50%;border:none;background:var(--card);font-size:12px;cursor:pointer;box-shadow:2px 2px 4px var(--shadow-dark),-2px -2px 4px var(--shadow-light);transition:transform 0.15s;}
+.gear-btn:hover{transform:scale(1.1);}
+
+/* ===== TOURNAMENT INFO BAR (horizontal, above everything) ===== */
+.tourney-bar{display:flex;flex-wrap:wrap;gap:6px 16px;padding:6px 16px;background:var(--tb-bg);font-family:var(--tb-font);flex-shrink:0;align-items:center;border-bottom:1px solid rgba(0,0,0,0.03);overflow:visible;}
+.tourney-bar .tvi{display:flex;align-items:center;gap:4px;font-size:12px;white-space:normal;word-break:break-word;}
+.tourney-bar .tvi input{background:none;border:none;outline:none;color:var(--text);font:inherit;cursor:text;white-space:normal;word-break:break-word;min-width:60px;}
+.tourney-bar .tvi:first-child input{font-size:15px;font-weight:800;width:auto;min-width:120px;max-width:300px;}
+.tourney-bar .tvi:nth-child(2) input{font-style:italic;opacity:0.8;width:auto;min-width:80px;max-width:200px;}
+.tourney-bar .tvi:nth-child(3) input{width:auto;min-width:80px;max-width:250px;}
+.tourney-bar .tvi:nth-child(4) input{font-weight:700;text-transform:uppercase;color:var(--accent);width:auto;min-width:80px;max-width:200px;}
+.tourney-bar .tvi:nth-child(5) input{font-weight:800;font-size:13px;width:auto;min-width:60px;max-width:200px;}
+.tourney-bar .tb-actions{margin-left:auto;display:flex;gap:6px;align-items:center;}
+.tourney-bar .tb-actions input[type="color"]{width:22px;height:22px;border:none;border-radius:50%;cursor:pointer;background:transparent;}
+.tourney-bar .tb-actions select{background:var(--bg);color:var(--text);border:none;padding:2px 6px;border-radius:5px;outline:none;font-size:10px;}
+
+/* ===== MAIN LAYOUT ===== */
+.main{display:flex;flex:1;overflow:hidden;}
+
+/* ===== LEFT PANEL ===== */
+.left{flex:0 0 22%;min-width:280px;max-width:380px;display:flex;flex-direction:column;gap:8px;padding:8px 10px;overflow-y:auto;border-right:1px solid rgba(0,0,0,0.04);}
+
+/* --- Header Banner (above wheel) --- */
+.header-banner{display:flex;width:100%;border-radius:14px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.12),0 1px 3px rgba(0,0,0,0.08);background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);transition:transform 0.2s;flex-shrink:0;}
+.header-banner:hover{transform:translateY(-2px);}
+.hb-video{flex:0 0 66.66%;position:relative;overflow:hidden;min-height:70px;max-height:85px;}
+.hb-video video{width:100%;height:100%;object-fit:cover;display:block;}
+.hb-video::after{content:'';position:absolute;inset:0;box-shadow:inset 0 0 20px rgba(0,0,0,0.4);pointer-events:none;}
+.hb-video .vid-upload-overlay{position:absolute;bottom:4px;right:4px;z-index:5;}
+.upload-vid-btn{font-size:9px;padding:3px 7px;border:none;border-radius:5px;background:rgba(255,255,255,0.2);color:#fff;cursor:pointer;font-weight:600;backdrop-filter:blur(4px);transition:background 0.15s;}
+.upload-vid-btn:hover{background:rgba(255,255,255,0.35);}
+.hb-brand{flex:0 0 33.33%;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+.hb-brand::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(241,196,15,0.08),rgba(231,76,60,0.08),rgba(255,255,255,0.05));}
+.brand-txt{font-family:'Outfit',sans-serif;font-size:26px;font-weight:900;line-height:1;position:relative;z-index:1;animation:brandPulse 3s ease-in-out infinite;}
+.brand-txt .by{background:linear-gradient(180deg,#f1c40f,#f39c12);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5));}
+.brand-txt .br{background:linear-gradient(180deg,#e74c3c,#c0392b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5));}
+.brand-txt .bw{background:linear-gradient(180deg,#ecf0f1,#bdc3c7);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));}
+@keyframes brandPulse{0%,100%{filter:drop-shadow(0 0 4px rgba(241,196,15,0.2));}50%{filter:drop-shadow(0 0 10px rgba(241,196,15,0.4));}}
+
+/* --- Wheel --- */
+.wheel-wrap{margin:0 auto;width:100%;aspect-ratio:1;position:relative;padding:8px;border-radius:50%;}
+.wheel-inner{width:100%;height:100%;border-radius:50%;overflow:hidden;box-shadow:0 0 12px rgba(0,0,0,0.08);}
+#wheel-canvas{width:100%;height:100%;display:block;}
+.spin-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:56px;height:56px;border-radius:50%;background:var(--card);color:var(--text);border:none;font-weight:900;font-size:13px;cursor:pointer;z-index:10;box-shadow:3px 3px 8px var(--shadow-dark),-3px -3px 8px var(--shadow-light);transition:all 0.1s;letter-spacing:0.5px;}
+.spin-btn:active{box-shadow:inset 3px 3px 8px var(--shadow-dark),inset -3px -3px 8px var(--shadow-light);transform:translate(-50%,-50%) scale(0.95);}
+.spin-btn:disabled{opacity:0.4;cursor:not-allowed;}
+.wheel-ptr{position:absolute;top:-2px;left:50%;transform:translateX(-50%);font-size:24px;color:var(--accent);z-index:20;filter:drop-shadow(1px 2px 2px rgba(0,0,0,0.3));line-height:1;}
+
+/* --- Controls --- */
+.ctrl-row{display:flex;justify-content:space-around;padding:2px 0;}
+.cb{width:34px;height:34px;border-radius:50%;border:none;background:var(--card);font-size:14px;cursor:pointer;color:var(--text);box-shadow:3px 3px 6px var(--shadow-dark),-3px -3px 6px var(--shadow-light);transition:all 0.15s;}
+.cb:hover{color:var(--accent);transform:translateY(-1px);}
+.cb:active{box-shadow:inset 3px 3px 6px var(--shadow-dark),inset -3px -3px 6px var(--shadow-light);transform:translateY(0);}
+
+/* --- Player List Left (ultra compact) --- */
+.plist-left{display:grid;grid-template-columns:1fr 1fr;gap:2px;flex:1;overflow-y:auto;padding:1px;align-content:start;scroll-behavior:smooth;}
+.pc{padding:3px 5px;border-radius:3px;background:var(--card);position:relative;transition:all 0.15s;border-left:2px solid var(--accent);}
+.pc .dx{position:absolute;top:0px;right:3px;font-size:8px;cursor:pointer;opacity:0.3;}
+.pc .dx:hover{opacity:1;color:red;}
+.pc.drawn{opacity:0.3;filter:grayscale(70%);border-left-color:#aaa;}
+.pc.drawn .pn{text-decoration:line-through;}
+.pc .pr-row{display:flex;align-items:center;gap:2px;padding-right:8px;}
+.pn{font-weight:700;font-size:10px;color:var(--name-color);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3;}
+.pu{font-size:8px;color:var(--unit-color);font-style:italic;line-height:1.2;}
+.pk{font-size:7px;background:var(--rank-color);color:#fff;padding:0 3px;border-radius:2px;font-weight:bold;white-space:nowrap;line-height:1.4;}
+
+/* ===== CENTER PANEL (BRACKET) ===== */
+.center{flex:1;position:relative;overflow:auto;padding:12px;}
+.bracket-wrap{position:relative;display:inline-flex;min-width:100%;min-height:100%;}
+#bracket-lines{position:absolute;top:0;left:0;pointer-events:none;z-index:1;}
+.bracket-cols{display:flex;gap:45px;z-index:2;padding:6px 24px;}
+.round-col{display:flex;flex-direction:column;justify-content:space-around;width:170px;gap:14px;}
+.round-label{text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;opacity:0.4;margin-bottom:3px;}
+.mb{background:var(--card);border-radius:8px;box-shadow:3px 3px 8px var(--shadow-dark),-3px -3px 8px var(--shadow-light);display:flex;flex-direction:column;transition:transform 0.15s;}
+.mb:hover{transform:scale(1.02);z-index:5;}
+.mp{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;cursor:pointer;transition:background 0.15s;position:relative;overflow:hidden;}
+.mp:first-child{border-bottom:1px solid rgba(0,0,0,0.04);border-radius:8px 8px 0 0;}
+.mp:last-child{border-radius:0 0 8px 8px;}
+.mp:hover{background:rgba(0,0,0,0.03);}
+.mp.winner{color:var(--accent);font-weight:800;background:rgba(255,255,255,0.4);box-shadow:inset 3px 0 0 var(--accent);}
+.mp .mn{font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;}
+.ms{width:30px;border:none;border-radius:4px;background:var(--bg);color:inherit;padding:2px;text-align:center;font-weight:bold;font-family:inherit;font-size:11px;box-shadow:inset 1px 1px 2px var(--shadow-dark),inset -1px -1px 2px var(--shadow-light);outline:none;z-index:10;}
+.ms:focus{color:var(--accent);}
+
+/* Animated bracket lines */
+.aline{stroke-dasharray:6;animation:flowl 1s linear infinite;opacity:0.5;}
+.aline-idle{opacity:0.15;stroke-dasharray:4 4;}
+@keyframes flowl{to{stroke-dashoffset:-12;}}
+
+/* ===== RIGHT PANEL (Overview Table) ===== */
+.right{flex:0 0 18%;min-width:220px;max-width:320px;display:flex;flex-direction:column;padding:8px 10px;border-left:1px solid rgba(0,0,0,0.04);}
+.right-header{display:flex;justify-content:space-between;align-items:center;padding:4px 0 6px;flex-shrink:0;}
+.right-header h3{font-size:12px;font-weight:800;opacity:0.6;}
+.export-btn{padding:3px 8px;border:none;border-radius:5px;background:var(--accent);color:#fff;font-size:9px;font-weight:700;cursor:pointer;transition:opacity 0.15s;}
+.export-btn:hover{opacity:0.85;}
+.overview-table{flex:1;overflow-y:auto;scroll-behavior:smooth;}
+.ot-head{display:grid;grid-template-columns:24px 1fr 1fr 32px;gap:3px;padding:3px 4px;font-size:9px;font-weight:800;opacity:0.5;text-transform:uppercase;position:sticky;top:0;background:var(--bg);z-index:2;border-bottom:1px solid rgba(0,0,0,0.06);}
+.ot-row{display:grid;grid-template-columns:24px 1fr 1fr 32px;gap:3px;padding:4px;font-size:10px;border-radius:3px;transition:background 0.1s;cursor:default;}
+.ot-row:nth-child(even){background:var(--row-even);}
+.ot-row:hover{background:rgba(0,0,0,0.05);}
+.ot-row.drawn{opacity:0.3;}
+.ot-row.drawn .ot-name,.ot-row.drawn .ot-unit{text-decoration:line-through;}
+.ot-row .ot-num{font-weight:700;opacity:0.35;font-size:9px;}
+.ot-row .ot-name{font-weight:700;color:var(--name-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ot-row .ot-unit{color:var(--unit-color);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ot-row .ot-rank{font-size:8px;text-align:center;color:var(--rank-color);font-weight:bold;}
+
+/* Flying Animation */
+.flying-player{position:fixed;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:13px;border-radius:8px;z-index:9999;transition:all 0.7s cubic-bezier(0.25,1,0.5,1);box-shadow:0 8px 20px rgba(0,0,0,0.3);pointer-events:none;overflow:hidden;}
+
+/* ===== MODALS ===== */
+.modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(3px);}
+.modal-c{background:var(--card);padding:24px;border-radius:var(--radius);min-width:300px;max-width:420px;box-shadow:8px 8px 25px rgba(0,0,0,0.2);display:flex;flex-direction:column;gap:12px;color:var(--text);max-height:90vh;overflow-y:auto;}
+.modal-c h2{font-weight:800;font-size:18px;margin-bottom:4px;}
+.modal-c label{font-size:11px;font-weight:700;opacity:0.6;}
+.minput{width:100%;padding:10px;border:none;border-radius:6px;background:var(--bg);color:var(--text);outline:none;font-family:inherit;box-shadow:inset 2px 2px 4px var(--shadow-dark),inset -2px -2px 4px var(--shadow-light);}
+.mselect{width:100%;padding:10px;border:none;border-radius:6px;background:var(--bg);color:var(--text);outline:none;font-family:inherit;}
+.mactions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px;}
+.mbtn{padding:8px 18px;border:none;border-radius:6px;cursor:pointer;background:var(--card);color:var(--text);font-weight:bold;font-family:inherit;box-shadow:3px 3px 6px var(--shadow-dark),-3px -3px 6px var(--shadow-light);transition:all 0.1s;font-size:13px;}
+.mbtn:active{box-shadow:inset 3px 3px 6px var(--shadow-dark),inset -3px -3px 6px var(--shadow-light);}
+.mbtn.pri{color:var(--accent);}
+.mbtn.danger{color:#e53e3e;}
+.sep{border:none;border-top:1px solid rgba(0,0,0,0.06);margin:4px 0;}
+.field-group{display:flex;flex-direction:column;gap:4px;}
+
+/* Admin lock overlay */
+.admin-lock{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:2000;align-items:center;justify-content:center;}
+.admin-lock .lock-box{text-align:center;display:flex;flex-direction:column;gap:16px;align-items:center;}
+.admin-lock .lock-box h1{font-size:28px;font-weight:900;}
+.admin-lock .lock-box input{padding:12px;border:none;border-radius:8px;width:240px;text-align:center;font-size:16px;background:var(--card);box-shadow:inset 3px 3px 6px var(--shadow-dark),inset -3px -3px 6px var(--shadow-light);outline:none;color:var(--text);}
+</style>
+</head>
+<body>
+
+<!-- ADMIN LOGIN SCREEN -->
+<div class="admin-lock" id="admin-lock">
+    <div class="lock-box">
+        <h1>🔐 Admin Login</h1>
+        <input type="password" id="admin-pw" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()">
+        <button class="mbtn pri" onclick="doLogin()" style="width:240px;">Login</button>
+        <p style="font-size:11px;opacity:0.5;">Default password: admin</p>
+    </div>
+</div>
+
+<!-- THEME + SETTINGS STRIP -->
+<div class="theme-strip" id="theme-strip">
+    <span class="label">THEME</span>
+    <div id="theme-dots"></div>
+    <div class="strip-spacer"></div>
+    <button class="gear-btn" title="Settings" onclick="openModal('settings-modal')">⚙️</button>
+    <button class="gear-btn" title="Supabase Cloud" onclick="openModal('supa-modal')" style="margin-left:3px;">☁️</button>
+    <button class="gear-btn" title="Logout" onclick="doLogout()" style="margin-left:3px;">🔒</button>
+</div>
+
+<!-- TOURNAMENT INFO BAR -->
+<div class="tourney-bar">
+    <div class="tvi"><span>🏆</span><input type="text" id="tb-v0"></div>
+    <div class="tvi"><span>🕒</span><input type="text" id="tb-v1"></div>
+    <div class="tvi"><span>📍</span><input type="text" id="tb-v2"></div>
+    <div class="tvi"><span>⚔️</span><input type="text" id="tb-v3"></div>
+    <div class="tvi"><span>💰</span><input type="text" id="tb-v4"></div>
+    <div class="tb-actions">
+        <input type="color" id="tb-bg-color" title="Bar BG">
+        <select id="tb-font"><option value="'Inter',sans-serif">Inter</option><option value="'Outfit',sans-serif">Outfit</option><option value="'Quicksand',sans-serif">Quicksand</option></select>
+    </div>
+</div>
+
+<!-- MAIN 3-COLUMN LAYOUT -->
+<main class="main">
+    <!-- LEFT PANEL -->
+    <aside class="left">
+        <!-- Header Banner: 2/3 Video + 1/3 Brand -->
+        <div class="header-banner">
+            <div class="hb-video">
+                <video id="header-video" autoplay loop muted playsinline>
+                    <source src="" type="video/mp4">
+                </video>
+                <div class="vid-upload-overlay">
+                    <button class="upload-vid-btn" onclick="document.getElementById('vid-upload').click()">📹</button>
+                    <input type="file" id="vid-upload" accept="video/*" style="display:none" onchange="handleVideoUpload(event)">
+                </div>
+            </div>
+            <div class="hb-brand">
+                <div class="brand-txt"><span class="by">live</span><span class="br">3c</span><span class="bw">.xyz</span></div>
+            </div>
+        </div>
+
+        <!-- Spin Wheel -->
+        <div class="wheel-wrap soft">
+            <div class="wheel-ptr">▼</div>
+            <div class="wheel-inner"><canvas id="wheel-canvas" width="400" height="400"></canvas></div>
+            <button id="spin-btn" class="spin-btn" onclick="spinWheel()">SPIN</button>
+        </div>
+        <div class="ctrl-row">
+            <button class="cb" title="Add Player" onclick="openModal('add-modal')">➕</button>
+            <button class="cb" title="Set Bracket Size" onclick="openModal('count-modal')">🔢</button>
+            <button class="cb" title="Import Excel" onclick="document.getElementById('import-excel').click()">📥</button>
+            <button class="cb" title="Download Template" onclick="downloadTemplate()">📄</button>
+            <input type="file" id="import-excel" accept=".xlsx,.xls" style="display:none" onchange="handleExcel(event)">
+        </div>
+        <div class="plist-left" id="player-list"></div>
+    </aside>
+
+    <!-- CENTER: BRACKET -->
+    <section class="center" id="center-panel">
+        <div class="bracket-wrap" id="bracket-container">
+            <svg id="bracket-lines"></svg>
+            <div class="bracket-cols" id="bracket-columns"></div>
+        </div>
+    </section>
+
+    <!-- RIGHT: OVERVIEW TABLE -->
+    <aside class="right" id="right-panel">
+        <div class="right-header">
+            <h3>📋 Player Overview</h3>
+            <div style="display:flex;gap:4px;">
+                <button class="export-btn" onclick="exportImage('right-panel','players')">📸 List</button>
+                <button class="export-btn" onclick="exportImage('center-panel','bracket')">📸 Bracket</button>
+            </div>
+        </div>
+        <div class="overview-table" id="overview-table">
+            <div class="ot-head"><span>#</span><span>Name</span><span>Unit</span><span>Rank</span></div>
+        </div>
+    </aside>
+</main>
+
+<!-- MODALS -->
+<div id="add-modal" class="modal">
+    <div class="modal-c">
+        <h2>➕ Add Player</h2>
+        <input class="minput" type="text" id="add-name" placeholder="Player Name" autocomplete="off">
+        <input class="minput" type="text" id="add-unit" placeholder="Unit / Club" autocomplete="off">
+        <select class="mselect" id="add-rank"><option value="">No Rank</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option></select>
+        <div class="mactions">
+            <button class="mbtn pri" onclick="addPlayer()">Save</button>
+            <button class="mbtn" onclick="closeModal('add-modal')">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<div id="count-modal" class="modal">
+    <div class="modal-c">
+        <h2>🔢 Bracket Size</h2>
+        <p style="font-size:11px;opacity:0.6;">Will round up to nearest power of 2. Resets bracket!</p>
+        <input class="minput" type="number" id="bracket-size-input" placeholder="e.g. 10" min="4" autocomplete="off">
+        <div class="mactions">
+            <button class="mbtn pri" onclick="updateBracketSize()">Generate</button>
+            <button class="mbtn" onclick="closeModal('count-modal')">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<div id="settings-modal" class="modal">
+    <div class="modal-c">
+        <h2>⚙️ Settings</h2>
+        <hr class="sep">
+        <div class="field-group">
+            <label>Admin Password</label>
+            <input class="minput" type="text" id="set-pw" placeholder="Change password">
+        </div>
+        <hr class="sep">
+        <h3 style="font-size:13px;font-weight:800;">☁️ Supabase Integration</h3>
+        <div class="field-group">
+            <label>Supabase URL</label>
+            <input class="minput" type="text" id="supa-url" placeholder="https://xxx.supabase.co">
+        </div>
+        <div class="field-group">
+            <label>Supabase Anon Key</label>
+            <input class="minput" type="text" id="supa-key" placeholder="eyJ...">
+        </div>
+        <div class="mactions">
+            <button class="mbtn pri" onclick="saveSettings()">Save</button>
+            <button class="mbtn" onclick="supaLoad()">🔄 Load from Supabase</button>
+            <button class="mbtn" onclick="closeModal('settings-modal')">Close</button>
+        </div>
+        <hr class="sep">
+        <div class="mactions">
+            <button class="mbtn danger" onclick="if(confirm('Reset ALL data?')){localStorage.clear();location.reload();}">🗑 Reset All</button>
+        </div>
+    </div>
+</div>
+
+<div id="supa-modal" class="modal">
+    <div class="modal-c">
+        <h2>☁️ Supabase Cloud Sync</h2>
+        <div style="font-size:10px;opacity:0.6;background:rgba(0,0,0,0.03);padding:8px;border-radius:6px;line-height:1.5;">
+            <b>📖 How to use:</b><br>
+            1. Go to <b>supabase.com</b> → Create project<br>
+            2. Go to Settings → API<br>
+            3. Copy <b>URL</b> + <b>anon public</b> key<br>
+            4. Paste below → Click <b>Save</b><br>
+            5. Create 2 tables: <b>players</b> (name, unit, rank) and <b>tournaments</b> (name, time, location, content, prize)
+        </div>
+        <hr class="sep">
+        <div class="field-group">
+            <label>Supabase URL</label>
+            <input class="minput" type="text" id="supa-url2" placeholder="https://xxx.supabase.co">
+        </div>
+        <div class="field-group">
+            <label>Supabase Anon Key</label>
+            <input class="minput" type="text" id="supa-key2" placeholder="eyJ...">
+        </div>
+        <div class="mactions" style="flex-wrap:wrap;">
+            <button class="mbtn pri" onclick="saveSupaConfig()">💾 Save Config</button>
+            <button class="mbtn" onclick="supaLoad()">⬇️ Load from Cloud</button>
+            <button class="mbtn" onclick="supaPush()">⬆️ Push to Cloud</button>
+            <button class="mbtn" onclick="closeModal('supa-modal')">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ============================================================
+   STATE & CONSTANTS
+   ============================================================ */
+const THEMES={
+    'soft-sport':{bg:'#e2e8f0',card:'#edf2f7',text:'#2d3748',accent:'#3182ce',sL:'#fff',sD:'#cbd5e0',r:'16px',nc:'#1a365d',uc:'#718096',rc:'#e53e3e'},
+    'candy':{bg:'#ffe4e6',card:'#fff1f2',text:'#9f1239',accent:'#f43f5e',sL:'#fff',sD:'#fda4af',r:'24px',nc:'#881337',uc:'#fb7185',rc:'#be185d'},
+    'ocean':{bg:'#e0f2fe',card:'#f0f9ff',text:'#075985',accent:'#0ea5e9',sL:'#fff',sD:'#bae6fd',r:'20px',nc:'#0c4a6e',uc:'#38bdf8',rc:'#0284c7'},
+    'forest':{bg:'#dcfce7',card:'#f0fdf4',text:'#14532d',accent:'#22c55e',sL:'#fff',sD:'#bbf7d0',r:'20px',nc:'#166534',uc:'#4ade80',rc:'#15803d'},
+    'sunset':{bg:'#ffedd5',card:'#fff7ed',text:'#9a3412',accent:'#f97316',sL:'#fff',sD:'#fed7aa',r:'20px',nc:'#7c2d12',uc:'#fb923c',rc:'#ea580c'},
+    'ice-cream':{bg:'#f3e8ff',card:'#faf5ff',text:'#581c87',accent:'#a855f7',sL:'#fff',sD:'#e9d5ff',r:'28px',nc:'#6b21a8',uc:'#c084fc',rc:'#9333ea'},
+    'dark-soft':{bg:'#1a202c',card:'#2d3748',text:'#f7fafc',accent:'#63b3ed',sL:'#4a5568',sD:'#1a202c',r:'16px',nc:'#bee3f8',uc:'#90cdf4',rc:'#63b3ed'},
+    'minimal':{bg:'#f3f4f6',card:'#fff',text:'#111827',accent:'#4b5563',sL:'#fff',sD:'#d1d5db',r:'12px',nc:'#111827',uc:'#6b7280',rc:'#374151'},
+    'cartoon':{bg:'#fef3c7',card:'#fffbeb',text:'#92400e',accent:'#fbbf24',sL:'#fff',sD:'#fde68a',r:'28px',nc:'#78350f',uc:'#f59e0b',rc:'#d97706'}
+};
+const DEFAULTS={size:16,tbVals:["3-Cushion Masters","Sat, 14:00","Club Arena","Single Elim.","$5,000"],tbBg:'#edf2f7',tbFont:"'Inter',sans-serif",theme:'soft-sport',adminPw:'admin'};
+let S={players:[],bracketSize:DEFAULTS.size,bracket:[],theme:DEFAULTS.theme,wheelRotation:0,isSpinning:false,tbVals:[...DEFAULTS.tbVals],tbBg:DEFAULTS.tbBg,tbFont:DEFAULTS.tbFont,adminPw:DEFAULTS.adminPw,supaUrl:'',supaKey:'',loggedIn:false,videoSrc:''};
+
+/* ============================================================
+   INIT
+   ============================================================ */
+function init(){
+    loadState();
+    if(!S.loggedIn){document.getElementById('admin-lock').style.display='flex';return;}
+    document.getElementById('admin-lock').style.display='none';
+    setupTopBar();
+    renderThemeDots();
+    applyTheme(S.theme);
+    renderPlayers();
+    renderBracket();
+    drawWheel();
+    loadSettingsUI();
+    window.addEventListener('resize',drawBracketLines);
+    setTimeout(drawBracketLines,300);
+}
+
+/* ============================================================
+   ADMIN AUTH
+   ============================================================ */
+function doLogin(){
+    const pw=document.getElementById('admin-pw').value;
+    if(pw===S.adminPw){S.loggedIn=true;saveState();document.getElementById('admin-lock').style.display='none';init();}
+    else alert('Wrong password!');
+}
+function doLogout(){S.loggedIn=false;saveState();document.getElementById('admin-lock').style.display='flex';}
+
+/* ============================================================
+   STORAGE (localStorage for state, IndexedDB for video)
+   ============================================================ */
+function loadState(){
+    const saved=localStorage.getItem('live3c_v2');
+    if(saved){try{const p=JSON.parse(saved);S={...S,...p};}catch(e){}}
+    if(!S.bracket||S.bracket.length===0)S.bracket=genBracket(S.bracketSize);
+    /* Load video from IndexedDB */
+    loadVideoFromDB();
+}
+function saveState(){
+    const s={...S,wheelRotation:0,isSpinning:false,videoSrc:''};
+    try{localStorage.setItem('live3c_v2',JSON.stringify(s));}catch(e){
+        s.players=S.players;s.bracket=S.bracket;
+        try{localStorage.setItem('live3c_v2',JSON.stringify(s));}catch(e2){}
+    }
+}
+
+/* --- IndexedDB for large video blob --- */
+function openVideoDB(cb){
+    const req=indexedDB.open('live3c_media',1);
+    req.onupgradeneeded=e=>{e.target.result.createObjectStore('videos');};
+    req.onsuccess=e=>cb(e.target.result);
+    req.onerror=()=>cb(null);
+}
+function saveVideoToDB(dataUrl){
+    openVideoDB(db=>{if(!db)return;const tx=db.transaction('videos','readwrite');tx.objectStore('videos').put(dataUrl,'brandVideo');});
+}
+function loadVideoFromDB(){
+    openVideoDB(db=>{
+        if(!db)return;
+        const tx=db.transaction('videos','readonly');
+        const req=tx.objectStore('videos').get('brandVideo');
+        req.onsuccess=()=>{if(req.result){document.getElementById('header-video').src=req.result;}};
+    });
+}
+
+/* ============================================================
+   TOP BAR
+   ============================================================ */
+function setupTopBar(){
+    for(let i=0;i<5;i++){const el=document.getElementById(`tb-v${i}`);el.value=S.tbVals[i]||DEFAULTS.tbVals[i];el.onchange=e=>{S.tbVals[i]=e.target.value;saveState();};}
+    const bgEl=document.getElementById('tb-bg-color');bgEl.value=S.tbBg;
+    document.documentElement.style.setProperty('--tb-bg',S.tbBg);
+    bgEl.oninput=e=>{S.tbBg=e.target.value;document.documentElement.style.setProperty('--tb-bg',S.tbBg);saveState();};
+    const fontEl=document.getElementById('tb-font');fontEl.value=S.tbFont;
+    document.documentElement.style.setProperty('--tb-font',S.tbFont);
+    fontEl.onchange=e=>{S.tbFont=e.target.value;document.documentElement.style.setProperty('--tb-font',S.tbFont);saveState();};
+}
+function handleVideoUpload(e){
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=function(ev){
+        const dataUrl=ev.target.result;
+        document.getElementById('header-video').src=dataUrl;
+        saveVideoToDB(dataUrl);
+    };
+    reader.readAsDataURL(file);
+}
+
+/* ============================================================
+   THEMES
+   ============================================================ */
+function renderThemeDots(){
+    const c=document.getElementById('theme-dots');c.innerHTML='';
+    for(const[k,t]of Object.entries(THEMES)){
+        const d=document.createElement('div');d.className='t-dot'+(S.theme===k?' active':'');
+        d.style.background=`linear-gradient(135deg,${t.bg},${t.accent})`;d.title=k;
+        d.onclick=()=>{applyTheme(k);renderThemeDots();};c.appendChild(d);
+    }
+}
+function applyTheme(key){
+    const t=THEMES[key]||THEMES['soft-sport'];S.theme=key;const r=document.documentElement;
+    r.style.setProperty('--bg',t.bg);r.style.setProperty('--card',t.card);r.style.setProperty('--text',t.text);
+    r.style.setProperty('--accent',t.accent);r.style.setProperty('--shadow-light',t.sL);r.style.setProperty('--shadow-dark',t.sD);
+    r.style.setProperty('--radius',t.r);r.style.setProperty('--name-color',t.nc);r.style.setProperty('--unit-color',t.uc);r.style.setProperty('--rank-color',t.rc);
+    saveState();
+}
+
+/* ============================================================
+   BRACKET DATA
+   ============================================================ */
+function genBracket(size){
+    const rounds=Math.log2(size);const br=[];
+    for(let r=0;r<rounds;r++){const ms=[];const mc=size/Math.pow(2,r+1);for(let m=0;m<mc;m++)ms.push({p1:null,p2:null,s1:'',s2:'',winner:null});br.push(ms);}
+    return br;
+}
+
+/* ============================================================
+   PLAYERS
+   ============================================================ */
+function addPlayer(){
+    const n=document.getElementById('add-name').value.trim();if(!n)return;
+    S.players.push({id:'p_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:n,unit:document.getElementById('add-unit').value.trim(),rank:document.getElementById('add-rank').value,drawn:false});
+    document.getElementById('add-name').value='';document.getElementById('add-unit').value='';document.getElementById('add-rank').value='';
+    closeModal('add-modal');saveAndRender();
+}
+function removePlayer(id){if(!confirm('Remove player?'))return;S.players=S.players.filter(p=>p.id!==id);saveAndRender();}
+function saveAndRender(){saveState();renderPlayers();renderBracket();drawWheel();}
+function getUndrawn(){return S.players.filter(p=>!p.drawn);}
+
+/* Render BOTH lists */
+function renderPlayers(){
+    /* Left compact list */
+    const list=document.getElementById('player-list');list.innerHTML='';
+    S.players.forEach(p=>{
+        const c=document.createElement('div');c.className='pc'+(p.drawn?' drawn':'');
+        c.innerHTML=`${!p.drawn?`<span class="dx" onclick="removePlayer('${p.id}')">✖</span>`:''}<div class="pr-row"><span class="pn" title="${p.name}">${p.name}</span>${p.rank?`<span class="pk">${p.rank}</span>`:''}</div>${p.unit?`<div class="pu">${p.unit}</div>`:''}`;
+        list.appendChild(c);
+    });
+    /* Right overview table */
+    const table=document.getElementById('overview-table');
+    table.innerHTML='<div class="ot-head"><span>#</span><span>Name</span><span>Unit</span><span>Rank</span></div>';
+    S.players.forEach((p,i)=>{
+        const row=document.createElement('div');row.className='ot-row'+(p.drawn?' drawn':'');
+        row.innerHTML=`<span class="ot-num">${i+1}</span><span class="ot-name" title="${p.name}">${p.name}</span><span class="ot-unit">${p.unit||'-'}</span><span class="ot-rank">${p.rank||'-'}</span>`;
+        table.appendChild(row);
+    });
+}
+
+/* ============================================================
+   WHEEL
+   ============================================================ */
+function drawWheel(){
+    const canvas=document.getElementById('wheel-canvas');const ctx=canvas.getContext('2d');
+    const size=canvas.width;const cx=size/2,cy=size/2,radius=cx;
+    ctx.clearRect(0,0,size,size);const undrawn=getUndrawn();
+    if(undrawn.length===0){ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--card');ctx.fill();return;}
+    const colors=['#f1c40f','#e74c3c','#f8f9fa'];const slice=(2*Math.PI)/undrawn.length;
+    for(let i=0;i<undrawn.length;i++){
+        const sa=i*slice-slice/2,ea=(i+1)*slice-slice/2;
+        ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,radius,sa,ea);ctx.fillStyle=colors[i%3];ctx.fill();ctx.lineWidth=1;ctx.strokeStyle='rgba(0,0,0,0.05)';ctx.stroke();
+        ctx.save();ctx.translate(cx,cy);ctx.rotate(i*slice);ctx.textAlign='right';ctx.textBaseline='middle';
+        ctx.fillStyle=colors[i%3]==='#f8f9fa'?'#222':colors[i%3]==='#f1c40f'?'#444':'#fff';
+        const fs=undrawn.length>20?10:undrawn.length>12?14:18;
+        ctx.font=`bold ${fs}px `+getComputedStyle(document.documentElement).getPropertyValue('--font-main');
+        ctx.fillText(undrawn[i].name,radius-14,0);ctx.restore();
+    }
+}
+function spinWheel(){
+    if(S.isSpinning)return;const undrawn=getUndrawn();
+    if(undrawn.length===0)return alert('No players left!');
+    const slot=findNextSlot();if(!slot)return alert('Bracket is full!');
+    S.isSpinning=true;document.getElementById('spin-btn').disabled=true;
+    const ti=Math.floor(Math.random()*undrawn.length);const tp=undrawn[ti];
+    const sd=360/undrawn.length;const off=(Math.random()-0.5)*(sd*0.7);const ta=270-(ti*sd)+off;
+    const cr=S.wheelRotation%360;const diff=ta-cr;const norm=((diff%360)+360)%360;const fr=S.wheelRotation+norm+360*5;
+    S.wheelRotation=fr;const canvas=document.getElementById('wheel-canvas');
+    canvas.style.transition='transform 4s cubic-bezier(0.1,0.9,0.2,1)';canvas.style.transform=`rotate(${fr}deg)`;
+    setTimeout(()=>flyPlayer(tp,slot),4050);
+}
+function findNextSlot(){const r0=S.bracket[0];for(let m=0;m<r0.length;m++){if(!r0[m].p1)return{r:0,m,pKey:'p1'};if(!r0[m].p2)return{r:0,m,pKey:'p2'};}return null;}
+function flyPlayer(player,slot){
+    const canvas=document.getElementById('wheel-canvas');const te=document.getElementById(`match-${slot.r}-${slot.m}-${slot.pKey}`);
+    if(!te){resetWheel();return;}
+    const wR=canvas.getBoundingClientRect();const tR=te.getBoundingClientRect();
+    const fly=document.createElement('div');fly.className='flying-player';fly.innerText=player.name;document.body.appendChild(fly);
+    fly.style.left=(wR.left+wR.width/2-55)+'px';fly.style.top=(wR.top+wR.height/2-18)+'px';fly.style.width='110px';fly.style.height='36px';
+    void fly.offsetWidth;
+    fly.style.left=tR.left+'px';fly.style.top=tR.top+'px';fly.style.width=tR.width+'px';fly.style.height=tR.height+'px';fly.style.opacity='0';
+    setTimeout(()=>{fly.remove();player.drawn=true;S.bracket[slot.r][slot.m][slot.pKey]=player;renderBracket();renderPlayers();saveState();resetWheel();},750);
+}
+function resetWheel(){
+    const c=document.getElementById('wheel-canvas');c.style.transition='opacity 0.2s';c.style.opacity='0';
+    setTimeout(()=>{S.wheelRotation=0;c.style.transition='none';c.style.transform='rotate(0deg)';drawWheel();
+    setTimeout(()=>{c.style.transition='opacity 0.2s';c.style.opacity='1';S.isSpinning=false;document.getElementById('spin-btn').disabled=false;},50);},250);
+}
+
+/* ============================================================
+   BRACKET RENDER
+   ============================================================ */
+function renderBracket(){
+    const container=document.getElementById('bracket-columns');container.innerHTML='';
+    const roundNames=['Round 1','Round 2','Quarter','Semi','Final','Champion'];
+    S.bracket.forEach((matches,r)=>{
+        const col=document.createElement('div');col.className='round-col';
+        const lbl=document.createElement('div');lbl.className='round-label';
+        lbl.textContent=r===S.bracket.length-1?'Final':r===S.bracket.length-2?'Semi':roundNames[r]||`R${r+1}`;
+        col.appendChild(lbl);
+        matches.forEach((m,mi)=>{
+            const bx=document.createElement('div');bx.className='mb';bx.id=`mb-${r}-${mi}`;
+            const mkP=(po,sc,pk,w)=>{const el=document.createElement('div');el.className='mp'+(w?' winner':'');el.id=`match-${r}-${mi}-${pk}`;
+                el.innerHTML=`<span class="mn">${po?po.name:'-'}</span><input type="text" class="ms" value="${sc||''}" onclick="event.stopPropagation()" onchange="updateScore(${r},${mi},'${pk}',event)">`;
+                el.onclick=()=>setWinner(r,mi,pk);return el;};
+            const w1=m.winner&&m.p1&&m.winner.id===m.p1.id;const w2=m.winner&&m.p2&&m.winner.id===m.p2.id;
+            bx.appendChild(mkP(m.p1,m.s1,'p1',w1));bx.appendChild(mkP(m.p2,m.s2,'p2',w2));col.appendChild(bx);
+        });
+        container.appendChild(col);
+    });
+    setTimeout(drawBracketLines,60);
+}
+function updateScore(r,mi,pk,e){if(pk==='p1')S.bracket[r][mi].s1=e.target.value;else S.bracket[r][mi].s2=e.target.value;saveState();}
+function setWinner(r,mi,pk){
+    const m=S.bracket[r][mi];const w=pk==='p1'?m.p1:m.p2;if(!w)return;m.winner=w;
+    const nr=r+1,nm=Math.floor(mi/2);
+    if(nr<S.bracket.length){const np=mi%2===0?'p1':'p2';S.bracket[nr][nm][np]=w;S.bracket[nr][nm].winner=null;}
+    renderBracket();saveState();
+}
+
+/* ============================================================
+   BRACKET LINES (pre-drawn + animated on winner)
+   ============================================================ */
+function drawBracketLines(){
+    const svg=document.getElementById('bracket-lines');const cont=document.getElementById('bracket-container');
+    svg.innerHTML='';svg.setAttribute('width',cont.scrollWidth);svg.setAttribute('height',cont.scrollHeight);
+    const rounds=S.bracket.length;const color=getComputedStyle(document.documentElement).getPropertyValue('--accent');
+    for(let r=0;r<rounds-1;r++){
+        const mc=S.bracket[r].length;
+        for(let m=0;m<mc;m++){
+            const e1=document.getElementById(`mb-${r}-${m}`);const e2=document.getElementById(`mb-${r+1}-${Math.floor(m/2)}`);
+            if(!e1||!e2)continue;
+            const r1=e1.getBoundingClientRect(),r2=e2.getBoundingClientRect(),cr=cont.getBoundingClientRect();
+            const x1=r1.right-cr.left,y1=r1.top+r1.height/2-cr.top,x2=r2.left-cr.left,y2=r2.top+r2.height/2-cr.top;
+            const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+            path.setAttribute('d',`M ${x1} ${y1} C ${x1+30} ${y1}, ${x2-30} ${y2}, ${x2} ${y2}`);
+            path.setAttribute('fill','none');path.setAttribute('stroke',color);path.setAttribute('stroke-width','2');
+            const hasWinner=S.bracket[r][m].winner;
+            path.setAttribute('class',hasWinner?'aline':'aline-idle');
+            svg.appendChild(path);
+        }
+    }
+}
+
+/* ============================================================
+   BRACKET SIZE
+   ============================================================ */
+function updateBracketSize(){
+    let raw=parseInt(document.getElementById('bracket-size-input').value);
+    if(isNaN(raw)||raw<2)raw=4;
+    const sz=Math.pow(2,Math.ceil(Math.log2(raw)));const rounds=Math.log2(sz);
+    document.getElementById('bracket-columns').innerHTML='';document.getElementById('bracket-lines').innerHTML='';
+    S.bracketSize=sz;S.bracket=[];
+    for(let r=0;r<rounds;r++){const mc=sz/Math.pow(2,r+1);const rm=[];for(let m=0;m<mc;m++)rm.push({p1:null,p2:null,s1:'',s2:'',winner:null});S.bracket.push(rm);}
+    S.players.forEach(p=>p.drawn=false);saveState();renderPlayers();renderBracket();drawWheel();closeModal('count-modal');
+}
+
+/* ============================================================
+   EXCEL
+   ============================================================ */
+function handleExcel(e){
+    const file=e.target.files[0];if(!file)return;const reader=new FileReader();
+    reader.onload=evt=>{const data=new Uint8Array(evt.target.result);const wb=XLSX.read(data,{type:'array'});
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
+    rows.slice(1).forEach(row=>{if(row[0])S.players.push({id:'p_'+Math.random().toString(36).substr(2,9),name:String(row[0]),unit:row[1]?String(row[1]):'',rank:row[2]?String(row[2]):'',drawn:false});});
+    document.getElementById('import-excel').value='';saveAndRender();};reader.readAsArrayBuffer(file);
+}
+function downloadTemplate(){
+    const ws=XLSX.utils.aoa_to_sheet([["Name","Unit","Rank"],["John Doe","Club A","A"]]);
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Players");XLSX.writeFile(wb,"live3c_template.xlsx");
+}
+
+/* ============================================================
+   EXPORT AS IMAGE
+   ============================================================ */
+function exportImage(elementId,filename){
+    const el=document.getElementById(elementId);if(!el)return;
+    html2canvas(el,{backgroundColor:getComputedStyle(document.documentElement).getPropertyValue('--bg'),scale:2}).then(canvas=>{
+        const a=document.createElement('a');a.download=`live3c_${filename}_${Date.now()}.png`;a.href=canvas.toDataURL('image/png');a.click();
+    }).catch(err=>alert('Export failed: '+err.message));
+}
+
+/* ============================================================
+   SETTINGS
+   ============================================================ */
+function loadSettingsUI(){
+    document.getElementById('set-pw').value=S.adminPw;
+    document.getElementById('supa-url').value=S.supaUrl||'';
+    document.getElementById('supa-key').value=S.supaKey||'';
+    /* Also populate Supabase modal */
+    document.getElementById('supa-url2').value=S.supaUrl||'';
+    document.getElementById('supa-key2').value=S.supaKey||'';
+}
+function saveSettings(){
+    const pw=document.getElementById('set-pw').value.trim();if(pw)S.adminPw=pw;
+    S.supaUrl=document.getElementById('supa-url').value.trim();
+    S.supaKey=document.getElementById('supa-key').value.trim();
+    saveState();loadSettingsUI();closeModal('settings-modal');alert('Settings saved!');
+}
+
+/* ============================================================
+   SUPABASE INTEGRATION (via REST API)
+   ============================================================ */
+function saveSupaConfig(){
+    S.supaUrl=document.getElementById('supa-url2').value.trim();
+    S.supaKey=document.getElementById('supa-key2').value.trim();
+    /* Sync to settings modal too */
+    document.getElementById('supa-url').value=S.supaUrl;
+    document.getElementById('supa-key').value=S.supaKey;
+    saveState();alert('☁️ Supabase config saved!');
+}
+
+async function supaFetch(table,method,body){
+    if(!S.supaUrl||!S.supaKey){alert('Configure Supabase first!');return null;}
+    const url=`${S.supaUrl}/rest/v1/${table}`;
+    const headers={'apikey':S.supaKey,'Authorization':`Bearer ${S.supaKey}`,'Content-Type':'application/json'};
+    if(method==='POST')headers['Prefer']='return=representation';
+    if(method==='PATCH')headers['Prefer']='return=representation';
+    const opts={method,headers};
+    if(body)opts.body=JSON.stringify(body);
+    const res=await fetch(url,opts);
+    if(!res.ok){const t=await res.text();throw new Error(`${res.status}: ${t}`);}
+    return res.json();
+}
+
+async function supaLoad(){
+    if(!S.supaUrl||!S.supaKey)return alert('Configure Supabase URL and Key first!');
+    try{
+        const tournaments=await supaFetch('tournaments?limit=1','GET');
+        if(tournaments&&tournaments.length){
+            const t=tournaments[0];
+            S.tbVals=[t.name||'',t.time||'',t.location||'',t.content||'',t.prize||''];
+            setupTopBar();
+        }
+        const players=await supaFetch('players?order=id','GET');
+        if(players&&Array.isArray(players)){
+            S.players=players.map(p=>({id:'supa_'+p.id,name:p.name||'',unit:p.unit||'',rank:p.rank||'',drawn:false}));
+        }
+        saveAndRender();closeModal('supa-modal');closeModal('settings-modal');
+        alert('✅ Loaded from Supabase!');
+    }catch(err){alert('❌ Supabase error: '+err.message);}
+}
+
+async function supaPush(){
+    if(!S.supaUrl||!S.supaKey)return alert('Configure Supabase URL and Key first!');
+    try{
+        /* Push tournament */
+        const tourney={name:S.tbVals[0]||'',time:S.tbVals[1]||'',location:S.tbVals[2]||'',content:S.tbVals[3]||'',prize:S.tbVals[4]||''};
+        await supaFetch('tournaments','POST',[tourney]);
+        /* Push players */
+        const pData=S.players.map(p=>({name:p.name,unit:p.unit,rank:p.rank}));
+        if(pData.length)await supaFetch('players','POST',pData);
+        alert('✅ Pushed to Supabase!');
+    }catch(err){alert('❌ Push error: '+err.message);}
+}
+
+/* ============================================================
+   UTILS
+   ============================================================ */
+function openModal(id){document.getElementById(id).style.display='flex';}
+function closeModal(id){document.getElementById(id).style.display='none';}
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+window.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
